@@ -12,7 +12,7 @@ const activeTab = ref('info')
 </script>
 
 <template>
-  <TestEditor />
+  <!-- <TestEditor /> -->
   <Test />
   
   <div class="flex flex-col h-screen">

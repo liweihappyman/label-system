@@ -32,7 +32,7 @@ class MarkObject implements MarkObject {
   // 标签
   label: string = ''
   // 标签颜色
-  color: string = '#ffff00'
+  color: string = '#ff0000'
   // 序号
   index: number = 1
   // 父级容器

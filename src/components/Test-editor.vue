@@ -96,7 +96,7 @@ onMounted(() => {
 
   // 标注对象完成通知
   mark.value.app.on("oncomplete", (e: ObjectCompleteHandle) => {
-    showLabelInput(function (data?: ObjectLabelData | null) {
+    showLabelInput(function (data?: MarkObjectJSON | null) {
       if (data) {
         e.ok(data)
       } else {
@@ -280,7 +280,7 @@ function setLabel(e: any, el: any) {
         <draggable v-model="objectList" group="people" @start="dragStatus = true" @end="stopDrag" item-key="id">
           <template #item="{ element }">
             <div @click="selectObj(element.id)" class="item" :class="{ active: element.select }"
-              @contextmenu="(e) => setLabel(e, element)">
+              @contextmenu="(e: any) => setLabel(e, element)">
               <b :style="{ background: element.color }"></b>{{ element.label }}
             </div>
           </template>

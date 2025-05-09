@@ -43,7 +43,8 @@ interface ObjectLabelData {
 
 
 interface ObjectCompleteHandle {
-  ok(labelData: ObjectLabelData): void,
+  
+  ok(labelData: MarkObjectJSON): void,
   err(): void,
 }
 
@@ -63,12 +64,18 @@ interface MarkObjectJSON {
 interface MarkObjectInfo {
   // ID
   id: string
+  // 序号 排序不会影响序号
+  index: number
   // 标签
-  label: string
+  // label: string
   // 标签颜色
   color: string
   // 是否选中
   select: boolean
+  // 标注类型
+  type: MarkObjectType
+  // 点位列表
+  pointList: IPointData[]
 }
 
 type MarkObjectId = string

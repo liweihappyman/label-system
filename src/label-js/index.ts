@@ -713,6 +713,9 @@ class MarkCanvas {
         id: obj.id,
         label: obj.label,
         color: obj.color,
+        type: obj.type,
+        index: obj.index,
+        pointList: obj.pointList,
         select: obj.status == 'edit',
       }
     })
