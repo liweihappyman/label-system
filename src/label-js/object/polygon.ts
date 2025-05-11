@@ -240,7 +240,7 @@ export default class MarkPolygonObject extends MarkObject {
         y: point.y - 20 / zoom,
         width: 30 / zoom,
         height: 20 / zoom,
-        fill: "rgba(0,0,0,1)",
+        fill: "rgba(0,0,0,0.6)",
       })
       this.obj.add(_box)
 
@@ -265,7 +265,7 @@ export default class MarkPolygonObject extends MarkObject {
       path: "",
       windingRule: "evenodd",
       stroke: this.color,
-      fill: (this.mouseEnter || this.status == 'edit') ? "rgba(255, 255, 255, 0.5)" : "rgba(0,0,0,0)",
+      fill: (this.mouseEnter || this.status == 'edit') ? "rgba(230, 82, 82, 0.2)" : "rgba(0,0,0,0)",
       strokeWidth: lineW
     })
     this.obj.add(path)

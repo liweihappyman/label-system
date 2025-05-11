@@ -16,29 +16,22 @@ var mark = ref<MarkCanvas | null>(null)
 // 选择模式状态
 var selectStatus = ref<boolean>(true)
 
+// 当前激活的工具类型，默认为选择器
 const activeTool = ref('selector')
+// 是否显示ROI(感兴趣区域)的开关状态
 const showROI = ref(true)
-
-
+// 存储所有标注对象的数组
 var objectList = ref<any[]>([])
+// 当前选中的标注对象ID
 var selectedAnnotationId = ref<string>('')
-// 存储标注数据的JSON字符串，包含多边形和矩形等标注信息
-// 格式示例: [{index:1, type:'polygon', label:'测试', color:'#0000ff', pointList:[{x,y}...]}, ...]
-var jsonValue = ref<string>('[{"index":1,"type":"polygon","label":"测试","color":"#0000ff","pointList":[{"x":589.7610921501706,"y":190.93517524797355},{"x":961.0921501706484,"y":187.4402813699872},{"x":963.7133372440272,"y":511.59047201631824},{"x":574.0341696885665,"y":496.73718969976534}]},{"index":2,"type":"polygon","label":"452","color":"#ff3838","pointList":[{"x":507.5775104955846,"y":367.9062590479178},{"x":733.6945664237803,"y":368.69680578342906},{"x":719.4633981566375,"y":620.1136795468802},{"x":400.8438992906432,"y":620.1136795468802}]},{"index":3,"type":"polygon","label":"2000","color":"#bafc03","pointList":[{"x":864.9373280895622,"y":286.472435518506},{"x":1149.5602711962554,"y":248.52272384548573},{"x":1109.238647879168,"y":663.5977310838199}]},{"index":4,"type":"polygon","label":"25252","color":"#ff14cc","pointList":[{"x":619.8454012449935,"y":123.60487893886025},{"x":745.553853206582,"y":333.11894543502393},{"x":1035.7110456980165,"y":137.83604720600303},{"x":702.0698016696424,"y":24.77750416204223}]},{"index":5,"type":"rect","label":"123123","color":"#ff0000","pointList":[{"x":283.96719303559905,"y":107.75259617537436},{"x":438.0344795796073,"y":243.91007553108827}]}]')
 
 const tools = [
-  { id: 'pointer', icon: 'point.svg', label: '选择' },
-  { id: 'line', icon: 'line.svg', label: '线段' },
-  { id: 'rectangle', icon: 'square.svg', label: '矩形' },
-  { id: 'circle', icon: 'circle.svg', label: '圆形' },
-  { id: 'polygon', icon: 'polygon.svg', label: '多边形' }
+  { id: 'selector', icon: 'selector.svg', name: '选择' },
+  { id: 'rectangle', icon: 'square.svg', name: '矩形', drawArg: 'rect' },
+  { id: 'polygon', icon: 'polygon.svg', name: '多边形', drawArg: 'polygon' },
+  { id: 'line', icon: 'line.svg', name: '直线', drawArg: 'line' },
+  { id: 'circle', icon: 'circle.svg', name: '圆形', drawArg: 'circle' },
 ]
-
-// 设置绘制类型
-// @param type 绘制类型(rect/polygon等)
-function setDrawType(type: any) {
-  mark.value?.setDrawType(type)
-}
 
 // 是否显示标签输入框
 var showLabel = ref<boolean>(false)
@@ -47,6 +40,12 @@ var colorInput = ref<string>('#ff0000')
 
 // 标签回调函数
 var labelCallback: any = null
+
+// 设置绘制类型
+// @param type 绘制类型(rect/polygon/line等)
+function setDrawType(type: any) {
+  mark.value?.setDrawType(type)
+}
 
 // 清除标签输入
 // 关闭标签输入框并清空回调
@@ -58,7 +57,8 @@ function clearLabel() {
 // 确认标签输入
 // 验证输入并提交标签数据
 function enterLabel() {
-  colorInput.value = colorInput.value.trim()
+  // 从预设颜色数组中循环取值
+  colorInput.value = colorInput.value.trim() || '#ff0000'
 
   // 调用回调函数提交标签数据
   labelCallback({
@@ -113,9 +113,9 @@ onMounted(() => {
   // 监听标注对象变化
   mark.value.app.on("onchange", () => {
     objectList.value = JSON.parse(JSON.stringify(mark.value?.objects))
-    console.log(objectList.value)
+    // console.log(objectList.value)
   })
-  
+
   // 监听标注对象删除事件
   mark.value.app.on("ondelete", (e) => {
     objectList.value = objectList.value.filter(obj => obj.id !== e.id)
@@ -153,9 +153,28 @@ function importJSON() {
  * @returns {void} 无返回值
  */
 function clearCanvas() {
-  mark.value?.clear()  
+  showLabelInput(function (confirm) {
+    if (confirm) {
+      let object: any;
+      for (object of objectList.value) {
+        mark.value?.deleteObject(object.id)
+      }
+    }
+  });
 }
 
+/**
+ * 删除标注框
+ * 移除选中的标注对象
+ * @returns {void} 无返回值
+ */
+function deleteObject(id: string) {
+  showLabelInput(function (confirm) {
+    if (confirm) {
+      mark.value?.deleteObject(id);
+    }
+  });
+}
 
 /**
  * 上传图片作为画布背景
@@ -184,7 +203,7 @@ function uploadImage() {
  * @param {string} id - 要选择的标注对象ID
  * @returns {void} 无返回值
  */
- function selectObj(id: string) {
+function selectObj(id: string) {
   mark.value?.setSelectMode(true)
   mark.value?.selectObjectById(id)
   activeTool.value = 'selector'
@@ -200,30 +219,17 @@ function uploadImage() {
       <div>
         <h3 class="text-base font-medium mb-3">标注工具</h3>
         <div class="grid grid-cols-3 gap-2 justify-items-center">
-          <button class="aspect-square p-2 rounded border hover:bg-gray-50"
-            :class="{ 'bg-yellow-200 text-gray-800 hover:bg-yellow-300': activeTool === 'selector' }"
-            @click="activeTool = 'selector'; mark?.setSelectMode(!selectStatus)">
-            <img class="w-6 h-6" src="/src/assets/icons/selector.svg" alt="选择" />
-          </button>
-          <!-- <button class="aspect-square p-2 rounded border hover:bg-gray-50"
-            :class="{ 'bg-yellow-200 text-gray-800 hover:bg-yellow-300': activeTool === 'line' }"
-            @click="activeTool = 'line'">
-            <img class="w-6 h-6" src="/src/assets/icons/line.svg" alt="线段" /> 
-          </button> -->
-          <button class="aspect-square p-2 rounded border hover:bg-gray-50"
-            :class="{ 'bg-yellow-200 text-gray-800 hover:bg-yellow-300': activeTool === 'rectangle' }"
-            @click="activeTool = 'rectangle'; setDrawType('rect')">
-            <img class="w-6 h-6" src="/src/assets/icons/square.svg" alt="矩形" />
-          </button>
-          <!-- <button class="aspect-square p-2 rounded border hover:bg-gray-50"
-            :class="{ 'bg-yellow-200 text-gray-800 hover:bg-yellow-300': activeTool === 'circle' }"
-            @click="activeTool = 'circle'">
-            <img class="w-6 h-6" src="/src/assets/icons/circle.svg" alt="圆形" />
-          </button> -->
-          <button class="aspect-square p-2 rounded border hover:bg-gray-50"
-            :class="{ 'bg-yellow-200 text-gray-800 hover:bg-yellow-300': activeTool === 'polygon' }"
-            @click="activeTool = 'polygon'; setDrawType('polygon')">
-            <img class="w-6 h-6" src="/src/assets/icons/polygon.svg" alt="多边形" />
+          <button v-for="tool in tools" :key="tool.id" class="aspect-square p-2 rounded border hover:bg-gray-50"
+            :class="{ 'bg-yellow-200 text-gray-800 hover:bg-yellow-300': activeTool === tool.id }" @click="() => {
+              activeTool = tool.id;
+              if (tool.id === 'selector') {
+                mark?.setSelectMode(!selectStatus);
+                selectedAnnotationId = '';
+              } else {
+                setDrawType(tool.drawArg || tool.id);
+              }
+            }">
+            <img class="w-6 h-6" :src="`/src/assets/icons/${tool.icon}`" :alt="tool.label" />
           </button>
         </div>
       </div>
@@ -232,11 +238,7 @@ function uploadImage() {
       <div>
         <h3 class="text-base font-medium mb-3">ROI 操作</h3>
         <div class="space-y-3">
-          <el-switch
-            v-model="showROI"
-            active-text="隐藏 ROI"
-            inactive-text="显示 ROI"
-          />
+          <!-- <el-switch v-model="showROI" active-text="隐藏 ROI" inactive-text="显示 ROI" /> -->
           <div class="flex gap-2">
             <el-button type="danger" class="flex-1" @click="clearCanvas">
               <el-icon>
@@ -258,20 +260,24 @@ function uploadImage() {
       <div>
         <h3 class="text-base font-medium mb-3">标注列表</h3>
         <el-scrollbar height="400px">
-          <div class="space-y-2 object-list">          
-            <div v-for="annotation in objectList" :key="annotation.id" 
+          <div class="space-y-2 object-list">
+            <div v-for="annotation in objectList" :key="annotation.id"
               class="flex items-center justify-between p-2 border rounded hover:bg-gray-50">
-              <el-button 
-                class="w-full" 
-                :type="selectedAnnotationId === annotation.id ? 'primary' : 'default'"
-                @click="selectObj(annotation.id)"
-              >
+              <el-button class="w-full"
+                :type="activeTool === 'selector' && selectedAnnotationId === annotation.id ? 'primary' : 'default'"
+                @click="selectObj(annotation.id)">
                 <span class="w-8 text-left">{{ annotation.index }}</span>
-                <span class="flex-1 text-center">{{ annotation.type === 'rect' ? '矩形' : '多边形' }}</span>
+                <span class="flex-1 text-center">
+                  {{ annotation.type === 'rect' ? '矩形' : annotation.type === 'line' ? '直线'
+                    : annotation.type === 'polygon' ? '多边形' : annotation.type === 'circle' ? '圆形' : '' }}
+                </span>
               </el-button>
-              <!-- <el-button type="text">
-                <el-icon><More /></el-icon>
-              </el-button> -->
+              <el-button type="text" v-if="activeTool === 'selector' && selectedAnnotationId === annotation.id"
+                @click="deleteObject(annotation.id)">
+                <el-icon style="color: red">
+                  <Delete />
+                </el-icon>
+              </el-button>
             </div>
           </div>
         </el-scrollbar>

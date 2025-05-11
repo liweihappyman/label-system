@@ -1,14 +1,11 @@
 import {
   ILeaferConfig,
   IPointData, Leafer, Path, App, LeafHelper, Image, ImageEvent, PointerEvent,
-  ZoomEvent, MoveEvent, Rect, Line
-} from 'leafer-ui'
+  ZoomEvent, MoveEvent} from 'leafer-ui'
 
-import anime from 'animejs';
+import { MarkObjectType, MarkObject, MarkRectObject, MarkPolygonObject, MarkLineObject, MarkCircleObject } from './object' // 导入 MarkCircleObject
 
-import { MarkObjectType, MarkObject, MarkRectObject, MarkPolygonObject } from './object'
-
-// const colors = ["rgb(252, 45, 19)", "rgb(246, 255, 72)", "rgb(59, 59, 254)", "rgb(0, 209, 1)", "rgb(79, 255, 228)", "rgb(253, 136, 33)", "rgb(249, 18, 119)", "rgb(240, 88, 235)", "rgb(219, 247, 215)", "rgb(188, 97, 36)", "rgb(21, 225, 157)", "rgb(160, 166, 54)", "rgb(242, 180, 122)", "rgb(196, 168, 219)", "rgb(27, 55, 29)", "rgb(149, 12, 20)"]
+//const colors = ["rgb(252, 45, 19)", "rgb(246, 255, 72)", "rgb(59, 59, 254)", "rgb(0, 209, 1)", "rgb(79, 255, 228)", "rgb(253, 136, 33)", "rgb(249, 18, 119)", "rgb(240, 88, 235)", "rgb(219, 247, 215)", "rgb(188, 97, 36)", "rgb(21, 225, 157)", "rgb(160, 166, 54)", "rgb(242, 180, 122)", "rgb(196, 168, 219)", "rgb(27, 55, 29)", "rgb(149, 12, 20)"]
 
 /**
  * 标注画布核心类，负责管理标注对象的创建、交互和渲染
@@ -113,14 +110,6 @@ class MarkCanvas {
     // 背景图片
     this.backgroundImage = new Image()
     this.objectsLayer.add(this.backgroundImage)
-
-    let line0 = new Line({ x: 0, y: 0, strokeWidth: 5, width: 0, stroke: "red", rotation: 45 })
-    this.objectsLayer.add(line0)
-
-    setTimeout(() => {
-      let time = 200
-      anime({ targets: line0, easing: 'linear', width: 141.4213562373095, duration: time, delay: time * 0 })
-    }, 200)
 
     // 辅助提示图层
     this.guideLayer = this.app.addLeafer({ hittable: false })
@@ -258,6 +247,10 @@ class MarkCanvas {
         obj = MarkPolygonObject.import(this, item)
       } else if (item.type === MarkObjectType.RECT) {
         obj = MarkRectObject.import(this, item)
+      } else if (item.type === MarkObjectType.LINE) { // 新增 Line 类型处理
+        obj = MarkLineObject.import(this, item)
+      } else if (item.type === MarkObjectType.CIRCLE) { // 新增 Circle 类型处理
+        obj = MarkCircleObject.import(this, item)
       }
       obj && this.markObjectList.push(obj)
     })
@@ -320,23 +313,49 @@ class MarkCanvas {
     let obj = this.markObjectList.find((item) => item.id === id)
     if (obj) obj.destory()
     this.markObjectList = this.markObjectList.filter((item) => item.id !== id)
+    
+    // 删除后重新排序剩余对象
+    this.markObjectList.forEach((obj, i) => {
+      obj.index = i + 1
+      obj.render()
+    })
+    
     this.app.emit('onchange')
   }
 
   /** 设置选择模式 */
+  /**
+   * 设置选择模式
+   * @param mode - 是否进入选择模式
+   * 
+   * 功能说明：
+   * 1. 切换标注画布的选择/绘制模式
+   * 2. 在选择模式下：
+   *    - 取消当前绘制状态
+   *    - 结束当前选中对象的编辑状态
+   * 3. 触发onselect事件通知UI更新
+   */
   setSelectMode(mode: boolean) {
+    // 如果模式未改变则直接返回
     if (this.selectMode == mode) return
 
-    // 选中状态取消当前绘制
+    // 进入选择模式时取消当前绘制状态
     if (mode) this.setDrawType(MarkObjectType.NONE)
+    
+    // 处理当前选中的对象
     if (this.selectObject) {
-      this.selectObject.status = 'done'
-      this.selectObject.render()
-      this.selectObject = undefined
+      this.selectObject.status = 'done' // 设置为完成状态
+      this.selectObject.render()       // 重新渲染对象
+      this.selectObject = undefined    // 清除选中引用
     }
 
+    // 更新选择模式状态
     this.selectMode = mode
+    
+    // 如果有最后记录的点位置，更新鼠标状态
     if (this.lastMovePoint) this.appPointMove({ ...this.lastMovePoint, spaceKey: this.moveStatus } as PointerEvent);
+    
+    // 触发选择模式变更事件
     this.app.emit("onselect", { status: mode })
   }
 
@@ -608,15 +627,15 @@ class MarkCanvas {
       }
     }
 
-    if (e.code == 'Delete') {
-      // 删除选中的标注对象
-      let obj = this.markObjectList.find(item => item.status == 'edit')
-      if (obj) {
-        obj.destory()
-        this.markObjectList.splice(this.markObjectList.indexOf(obj), 1)
-        this.app.emit('onchange')
-      }
-    }
+    // if (e.code == 'Delete') {
+    //   // 删除选中的标注对象
+    //   let obj = this.markObjectList.find(item => item.status == 'edit')
+    //   if (obj) {
+    //     obj.destory()
+    //     this.markObjectList.splice(this.markObjectList.indexOf(obj), 1)
+    //     this.app.emit('onchange')
+    //   }
+    // }
   }
   /**
    * 处理键盘抬起事件
@@ -678,12 +697,19 @@ class MarkCanvas {
     } else if (type == MarkObjectType.POLYGON) {
       let obj = new MarkPolygonObject(this)
       this.markObjectList.push(obj)
+    } else if (type == MarkObjectType.LINE) {
+      let obj = new MarkLineObject(this)
+      this.markObjectList.push(obj)
+    } else if (type == MarkObjectType.CIRCLE) { // 新增 Circle 类型处理
+      let obj = new MarkCircleObject(this)
+      this.markObjectList.push(obj)
     }
 
     // 回调函数
     this.appPointMove({ ...this.lastMovePoint, spaceKey: this.moveStatus } as PointerEvent);
     this.app.emit("ondraw", { type })
   }
+  
   /**
    * 清空画布内容
    * 

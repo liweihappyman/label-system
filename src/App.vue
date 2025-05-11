@@ -13,7 +13,7 @@ const activeTab = ref('info')
 
 <template>
   <!-- <TestEditor /> -->
-  <Test />
+  <!-- <Test /> -->
   
   <div class="flex flex-col h-screen">
     <!-- Top Navigation -->
@@ -25,12 +25,12 @@ const activeTab = ref('info')
       <Sidebar class="flex-[0.5] w-64 bg-gray-100 border-r" />
 
       <!-- Center Content -->
-      <div class="flex-[2]">
+      <div class="flex-[2] w-32">
         <ImageAnnotation />
       </div>
 
       <!-- Right Panel -->
-      <div class="flex-[1] w-80 bg-gray-50 border-l p-4">
+      <div class="flex-[1.5] w-120 bg-gray-50 border-l p-4">
         <el-tabs v-model="activeTab" class="h-full">
           <el-tab-pane label="患者信息" name="info">
             <PatientInfo />
@@ -45,6 +45,6 @@ const activeTab = ref('info')
     </div>
 
     <!-- Bottom Image List -->
-    <ImageList class="h-32 bg-gray-100 border-t" />
+    <ImageList class="h-64 bg-gray-100 border-t" />
   </div>
 </template>

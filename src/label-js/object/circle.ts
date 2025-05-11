@@ -1,14 +1,13 @@
 import { Ellipse, Group, IPointData, Path, Rect, Text } from 'leafer-ui'
 import { genUUID } from '../utils/uuid'
-import { isPointInPolygon } from '../utils/geometry'
 import MarkCanvas from '..'
 import MarkObject from './object'
-import { MarkObjectType, MarkPolygonObject } from '.'
+import { MarkObjectType, MarkRectObject, MarkPolygonObject } from '.'
 
 /**
- * 标注对象 POLYGON
+ * 标注对象 CIRCLE
  */
-export default class MarkRectObject extends MarkObject {
+export default class MarkCircleObject extends MarkObject {
   // 最后按下
   lastPointDown?: IPointData
   constructor(box: MarkCanvas) {
@@ -16,10 +15,10 @@ export default class MarkRectObject extends MarkObject {
     // 生成随机ID
     this.id = genUUID()
     // 设置最小点位数量
-    this.minPointCount = 2
+    this.minPointCount = 2 // 圆心和半径上的一个点
 
     // 标注类型
-    this.type = MarkObjectType.RECT
+    this.type = MarkObjectType.CIRCLE // 修改为 CIRCLE
 
     // 设置父级容器
     this.box = box
@@ -45,7 +44,7 @@ export default class MarkRectObject extends MarkObject {
   async boxOnPointDown(e: IPointData) {
     if (this.status == 'draw') { // 绘制中
       this.lastPointDown = e
-      this.pointList = [e, e]
+      this.pointList = [e, e] // 第一个点是圆心，第二个点是半径上的点
       this.render()
     }
 
@@ -61,7 +60,7 @@ export default class MarkRectObject extends MarkObject {
       this.box.selectObject = this
       this.mouseDown = true
       this.lastMousePoint = this.box.lastPoint!
-      // 判断当前点位距离哪一个点最近
+      // 判断当前点位距离哪一个点最近 (圆心或半径控制点)
       this.acctivePointIndex = this.getMinDistance(this.lastMousePoint)
 
       this.render()
@@ -78,9 +77,12 @@ export default class MarkRectObject extends MarkObject {
    * @returns 
    */
   getMinDistance(oPoint: IPointData) {
+    if (this.pointList.length < 2) return -1;
     let minDistance = Infinity
     let minDistanceIndex = -1
-    this.vertexList.forEach((point, index) => {
+    // 检查圆心和半径控制点
+    const pointsToCheck = [this.pointList[0], this.pointList[1]]; 
+    pointsToCheck.forEach((point, index) => {
       let distance = Math.sqrt(Math.pow(point.x - oPoint.x, 2) + Math.pow(point.y - oPoint.y, 2))
       if (distance < minDistance) {
         minDistance = distance
@@ -95,7 +97,7 @@ export default class MarkRectObject extends MarkObject {
   boxOnPointMove() {
     if (this.completeing == true) return
     if (this.status == 'draw' && this.pointList[0]) {
-      this.pointList[1] = this.box.lastPoint!
+      this.pointList[1] = this.box.lastPoint! // 更新半径上的点
       this.render()
     }
 
@@ -106,7 +108,7 @@ export default class MarkRectObject extends MarkObject {
         y: this.box.lastPoint!.y - this.lastMousePoint!.y
       }
 
-      if (this.acctivePointIndex == -1) {
+      if (this.acctivePointIndex == -1) { // 拖动整个圆形
         // 更新点位
         this.pointList = this.pointList.map(point => {
           return {
@@ -114,31 +116,8 @@ export default class MarkRectObject extends MarkObject {
             y: point.y + offset.y
           }
         })
-      } else {
-        // 矩形点位修改
-        let point = { ...this.vertexList[this.acctivePointIndex] }
-        let point1; // 对角点
-        // 确定对角
-        if (this.acctivePointIndex == 0) {
-          point1 = { ...this.vertexList[2] }
-        } else if (this.acctivePointIndex == 1) {
-          point1 = { ...this.vertexList[3] }
-        } else if (this.acctivePointIndex == 2) {
-          point1 = { ...this.vertexList[0] }
-        } else if (this.acctivePointIndex == 3) {
-          point1 = { ...this.vertexList[1] }
-        }
-        point = { ...this.box.lastPoint! }
-
-        // 规划矩形的两个顶点
-        let minx = Math.min(point.x, point1!.x)
-        let miny = Math.min(point.y, point1!.y)
-        let maxx = Math.max(point.x, point1!.x)
-        let maxy = Math.max(point.y, point1!.y)
-        this.pointList = [{ x: minx, y: miny }, { x: maxx, y: maxy }]
-
-        // 根据位置确认新的控制点
-        this.acctivePointIndex = this.vertexList.findIndex(item => item.x == point.x && item.y == point.y)
+      } else { // 拖动控制点 (圆心或半径点)
+        this.pointList[this.acctivePointIndex] = { ...this.box.lastPoint! }
       }
 
       // 更新最后鼠标位置
@@ -151,21 +130,6 @@ export default class MarkRectObject extends MarkObject {
   /** 鼠标松开 */
   boxOnPointUp() {
     this.mouseDown = false
-    if (this.status == 'draw' || this.status == 'edit') {
-      if (this.pointList.length === 2) {
-        // 排序小的在前面
-        let minx = Math.min(this.pointList[0].x, this.pointList[1].x)
-        let miny = Math.min(this.pointList[0].y, this.pointList[1].y)
-        let maxx = Math.max(this.pointList[0].x, this.pointList[1].x)
-        let maxy = Math.max(this.pointList[0].y, this.pointList[1].y)
-        this.pointList = [
-          { x: minx, y: miny },
-          { x: maxx, y: maxy }
-        ]
-        this.render()
-      }
-    }
-
     if (this.status == 'draw') {
       if (this.pointList.length === 2) {
         this.complete()
@@ -203,22 +167,20 @@ export default class MarkRectObject extends MarkObject {
   }
   /** 完成 */
   async complete() {
-    // 点位数量不足
     if (this.pointList.length < this.minPointCount) return
 
-    // 判断两个点位相差超过20  
-    let offset = Math.max(
-      Math.abs(this.pointList[0].x - this.pointList[1].x),
-      Math.abs(this.pointList[0].y - this.pointList[1].y)
-    )
-    if (offset < 20) {
+    const radius = Math.sqrt(
+      Math.pow(this.pointList[0].x - this.pointList[1].x, 2) +
+      Math.pow(this.pointList[0].y - this.pointList[1].y, 2)
+    );
+
+    if (radius < 5) { // 如果半径太小，则不完成绘制
       this.status = 'draw'
       this.pointList = []
       this.render()
       return
     }
 
-    // 发送通知获取前端进程的标签数据
     this.completeing = true
     let labelData = await new Promise((resolve, reject) => {
       this.box.app.emit('oncomplete', { ok: resolve, err: reject })
@@ -229,7 +191,6 @@ export default class MarkRectObject extends MarkObject {
       throw Error('The mark object has not been assigned a label.')
     }) as ObjectLabelData
 
-    // 设置标签
     this.completeing = false
     this.label = labelData.label
     this.color = labelData.color
@@ -242,43 +203,26 @@ export default class MarkRectObject extends MarkObject {
       obj = new MarkRectObject(this.box)
     } else if (this.box.currentDrawingType == MarkObjectType.POLYGON) {
       obj = new MarkPolygonObject(this.box)
+    } else if (this.box.currentDrawingType == MarkObjectType.CIRCLE) { // 修改为 CIRCLE
+      obj = new MarkCircleObject(this.box)
     }
     obj && this.box.markObjectList.push(obj)
+
     this.box.app.emit('onchange')
   }
-  /**
-   * 获取矩形顶点
-   */
-  get vertexList(): IPointData[] {
-    if (this.pointList.length === 2) {
-      // 更具矩形两个点  4个顶点
-      return [
-        this.pointList[0],
-        { x: this.pointList[0].x, y: this.pointList[1].y },
-        this.pointList[1],
-        { x: this.pointList[1].x, y: this.pointList[0].y }
-      ]
-    } else {
-      return []
-    }
-  }
-  /** 渲染 */
+
   render() {
-    // 已完中止绘制
-    // if (this.status == 'done') return
-    // 清空分组元素
     for (let i = 0; i < this.obj.children.length; i++) this.obj.remove(this.obj.children[i])
     this.obj.children = []
-    // 重置定位
+
+    if (this.pointList.length < 2) return
+
     this.obj.x = 0, this.obj.y = 0
     
-    // 缩放比例
     let zoom = this.box.curLayout.zoom
 
-    // 绘制一个序号
     if (this.pointList.length == 2) {
-      let point = this.pointList[0] || this.box.lastPoint
-      // 绘制一个方块
+      let point = this.pointList[0] // 圆心
       let _box = new Rect({
         x: point.x,
         y: point.y - 20 / zoom,
@@ -288,7 +232,6 @@ export default class MarkRectObject extends MarkObject {
       })
       this.obj.add(_box)
 
-      // 绘制文本
       let _text = new Text({
         width: 30 / zoom,
         height: 20 / zoom,
@@ -303,68 +246,78 @@ export default class MarkRectObject extends MarkObject {
       this.obj.add(_text)
     }
 
-    // 线宽
     let lineW = this.box.config.lineWidth / zoom
-    let path = new Path({
-      path: "",
-      windingRule: "evenodd",
-      stroke: this.color,
-      fill: (this.mouseEnter || this.status == 'edit') ? "rgba(230, 82, 82, 0.2)" : "rgba(0,0,0,0)",
-      strokeWidth: lineW
-    })
-    this.obj.add(path)
+    
+    
+    if (this.pointList.length === 2) {
+      const center = this.pointList[0];
+      const radiusPoint = this.pointList[1];
+      const radius = Math.sqrt(Math.pow(center.x - radiusPoint.x, 2) + Math.pow(center.y - radiusPoint.y, 2));
 
-    // 循环绘制点位
-    this.vertexList.forEach((point, index) => {
-      // 绘制线段
-      if (index === 0) {
-        path.path += `M${point.x},${point.y} `
-      } else {
-        path.path += `L${point.x},${point.y} `
-      }
+      let circle = new Ellipse({
+        x: center.x - radius,
+        y: center.y - radius,
+        width: radius * 2,
+        height: radius * 2,
+        stroke: this.color,
+        strokeWidth: lineW,
+        fill: (this.mouseEnter || this.status == 'edit') ? "rgba(230, 82, 82, 0.2)" : "rgba(0,0,0,0)"
+      })
+      this.obj.add(circle)
 
-      // 非编辑模式下只显示第一个顶点
-      if (this.status == 'draw' || this.status == 'edit') {
-        let _vertex = new Ellipse({
-          x: point.x - lineW * 2,
-          y: point.y - lineW * 2,
-          width: lineW * 4,
-          height: lineW * 4,
-          fill: this.color
+      if (this.status === 'edit' || this.status === 'draw') {
+        // 绘制圆心和半径控制点
+        const controlPoints = [center, radiusPoint];
+        controlPoints.forEach((point, index) => {
+          let _vertex = new Ellipse({
+            x: point.x - lineW * 2,
+            y: point.y - lineW * 2,
+            width: lineW * 4,
+            height: lineW * 4,
+            fill: this.color
+          })
+          this.obj.add(_vertex)
+
+          if (this.acctivePointIndex === index) {
+            let _highlightVertex = new Ellipse({
+              x: point.x - lineW * 4,
+              y: point.y - lineW * 4,
+              width: lineW * 8,
+              height: lineW * 8,
+              fill: this.color
+            })
+            this.obj.add(_highlightVertex)
+          }
         })
-        this.obj.add(_vertex)
       }
-    })
-    path.path += "Z"
+    }
   }
-  /** 判断点是否在多边形内部 */
-  isPointInside(point: IPointData): boolean {
-    let expand = 8 / this.box.curLayout.zoom
-    let offset = isPointInPolygon(point, this.vertexList)
-    // this.mouseEnter = offset < expand
-    // this.render()
-    return offset < expand
-  }
-  /** 导出数据 */
+
   export(): MarkObjectJSON {
     return {
       index: this.index,
       type: this.type,
       label: this.label,
       color: this.color,
-      pointList: this.pointList,
+      pointList: this.pointList, // 圆心和半径点
     }
   }
-  /** 导入 */
-  static import(box: MarkCanvas, data: MarkObjectJSON): MarkRectObject {
+
+  static import(box: MarkCanvas, data: MarkObjectJSON): MarkCircleObject {
     let obj = new this(box)
     obj.label = data.label
     obj.color = data.color
     obj.pointList = data.pointList
     obj.status = 'done'
     obj.render()
-
-    // 取消事件监听
     return obj
+  }
+
+  isPointInside(point: IPointData): boolean {
+    if (this.pointList.length < 2) return false;
+    const center = this.pointList[0];
+    const radius = Math.sqrt(Math.pow(center.x - this.pointList[1].x, 2) + Math.pow(center.y - this.pointList[1].y, 2));
+    const distance = Math.sqrt(Math.pow(point.x - center.x, 2) + Math.pow(point.y - center.y, 2));
+    return distance <= radius;
   }
 }
