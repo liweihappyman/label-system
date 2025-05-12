@@ -49,6 +49,8 @@ interface ObjectCompleteHandle {
 }
 
 interface MarkObjectJSON {
+  // ID
+  // id: string
   // 序号 排序不会影响序号
   index: number
   // 标签

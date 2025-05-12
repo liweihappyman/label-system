@@ -21,6 +21,7 @@ interface MarkObject {
  * 标注对象
  */
 class MarkObject implements MarkObject {
+  
   /** 标注ID  初始化随机生成 用来比对区分的 */
   id: string = ''
   // 点位列表

@@ -198,38 +198,77 @@ class MarkCanvas {
    * 4. 保存初始布局信息
    */
   async setBackground(path: string) {
-    return new Promise((resolve) => {
-      // 图片对象
-      // const image = new Image({ url: path })
-      this.backgroundImage.url = path
+    return new Promise((resolve, reject) => {
+      // If URL is the same and image is already loaded and valid
+      if (this.backgroundImage.url === path && this.backgroundImage.ready && this.originSize && this.originSize.width > 0 && this.originSize.height > 0) {
+        // Recalculate layout as app dimensions might have changed
+        let zoom = 1;
+        // Ensure originSize is valid for division
+        if (this.originSize.width > 0 && this.originSize.height > 0) { 
+            let zoomx = this.app.width / this.originSize.width;
+            let zoomy = this.app.height / this.originSize.height;
+            zoom = Math.min(zoomx, zoomy);
+        } else {
+            // Fallback if originSize is somehow invalid despite checks, though unlikely here
+            console.warn("Origin size is invalid during re-layout. Using zoom = 1.");
+        }
 
-      // 图片加载
+        let offsetx = (this.app.width - this.originSize.width * zoom) / 2;
+        let offsety = (this.app.height - this.originSize.height * zoom) / 2;
+
+        this.objectsLayer.scale = zoom;
+        this.objectsLayer.x = offsetx;
+        this.objectsLayer.y = offsety;
+
+        // Update layouts
+        this.initLayout = { zoom, offsetx, offsety };
+        this.curLayout = { zoom, offsetx, offsety };
+        
+        this.app.forceRender();
+        resolve(true);
+        return;
+      }
+
+      // Remove any previous listeners to be safe
+      this.backgroundImage.off(ImageEvent.LOADED);
+      this.backgroundImage.off(ImageEvent.ERROR);
+
+      this.backgroundImage.url = path;
+
       this.backgroundImage.once(ImageEvent.LOADED, (e: ImageEvent) => {
-        // 记录图片原始大小  后续所有的坐标都基于这个尺寸
-        this.originSize = { width: e.image.width, height: e.image.height }
-        this.backgroundImage.width = e.image.width
-        this.backgroundImage.height = e.image.height
+        if (e.image && e.image.width > 0 && e.image.height > 0) {
+          this.originSize = { width: e.image.width, height: e.image.height };
+          this.backgroundImage.width = e.image.width;
+          this.backgroundImage.height = e.image.height;
 
-        // 计算设置缩放
-        let zoomx = this.app.width / e.image.width
-        let zoomy = this.app.height / e.image.height
-        let zoom = Math.min(zoomx, zoomy)
+          let zoomx = this.app.width / e.image.width;
+          let zoomy = this.app.height / e.image.height;
+          let zoom = Math.min(zoomx, zoomy);
 
-        // 计算偏移
-        let offsetx = (this.app.width - e.image.width * zoom) / 2
-        let offsety = (this.app.height - e.image.height * zoom) / 2
+          let offsetx = (this.app.width - e.image.width * zoom) / 2;
+          let offsety = (this.app.height - e.image.height * zoom) / 2;
 
-        // 先缩放完再平移
-        this.scale(zoom)
-        this.translate(offsetx, offsety)
+          this.objectsLayer.scale = zoom;
+          this.objectsLayer.x = offsetx;
+          this.objectsLayer.y = offsety;
 
-        // 保存初始布局
-        this.initLayout = { zoom, offsetx, offsety }
-        this.curLayout = this.initLayout
+          this.initLayout = { zoom, offsetx, offsety };
+          this.curLayout = { zoom, offsetx, offsety };
+          
+          this.app.forceRender();
+          resolve(true);
+        } else {
+          // Handle case where image loads but dimensions are invalid
+          console.error("Image loaded but has invalid dimensions:", path, e.image);
+          reject(new Error(`Image loaded with invalid dimensions: ${path}`));
+        }
+      });
 
-        resolve(null)
-      })
-    })
+      this.backgroundImage.once(ImageEvent.ERROR, (e: ImageEvent) => {
+        console.error("Image load error:", path, e);
+        reject(new Error(`Failed to load image: ${path}`));
+      });
+    });
   }
   /**
    * 设置标注对象数据
