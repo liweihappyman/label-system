@@ -316,12 +316,12 @@ function handleImageSelected(imageSrc: string) {
       <Sidebar class="flex-[0.5] w-64 bg-gray-100 border-r" @patient-selected="handlePatientSelected" />
 
       <!-- Center Content -->
-      <div class="flex-[2] w-32">
+      <div class="flex-[2.5] w-32">
         <ImageAnnotation ref="imageAnnotationRef" />
       </div>
 
       <!-- Right Panel -->
-      <div class="flex-[1.5] w-120 bg-gray-50 border-l p-4">
+      <div class="flex-[1.5] w-120 bg-gray-50 border-l p-4 h-full">
         <el-tabs v-model="activeTab" class="h-full">
           <el-tab-pane label="患者信息" name="info">
             <PatientInfo />

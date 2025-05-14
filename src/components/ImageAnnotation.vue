@@ -763,11 +763,9 @@ defineExpose({
 
 #mark-box {
   flex: 1;
-  /* Removed fixed height, it will now adapt to parent's height or content */
   overflow: hidden;
   margin-right: 15px;
   display: flex;
-  align-items: center;
   justify-content: center;
 }
 
