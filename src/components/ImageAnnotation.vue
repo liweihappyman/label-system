@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 导入Vue相关功能
-import { onMounted, ref, defineExpose } from 'vue'
+import { onMounted, ref} from 'vue'
 // 导入标注画布组件
 import MarkCanvas from '../label-js'
 // 导入默认背景图片
@@ -764,7 +764,6 @@ defineExpose({
 #mark-box {
   flex: 1;
   overflow: hidden;
-  margin-right: 15px;
   display: flex;
   justify-content: center;
 }

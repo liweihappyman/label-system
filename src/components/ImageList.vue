@@ -22,13 +22,15 @@ function selectImage(imageSrc: string) {
       <div class="flex space-x-4">
         <div v-for="i in props.images.length" :key="i" class="flex-shrink-0 h-60 flex justify-center items-center ml-0.5">
           <div class="flex flex-col items-center">
-            <el-image
+            <div>
+              <el-image
               style="width: 114px; height: 157px"
               :src="props.images[i-1]"
               fit="cover"
               class="rounded cursor-pointer hover:ring-2 hover:ring-blue-500"
               @click="selectImage(props.images[i-1])"
             />
+            </div>
             <div class="text-center mt-1">ID: {{ i }}</div>
           </div>
         </div>

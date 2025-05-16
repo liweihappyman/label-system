@@ -1,7 +1,12 @@
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const activeDrawingTool = ref('pointer')
+const router = useRouter()
+
+const goToImageCapture = () => {
+  router.push('/image-capture')
+}
 </script>
 
 <template>
@@ -9,8 +14,8 @@ const activeDrawingTool = ref('pointer')
     <div class="flex items-center justify-between">
       <!-- Left Section -->
       <div class="space-x-2">
-        <el-button type="primary">信息录入</el-button>
-        <el-button>图像采集</el-button>
+        <el-button>信息录入</el-button>
+        <el-button type="primary" @click="goToImageCapture">图像采集</el-button>
       </div>
 
       <!-- Center Section -->
